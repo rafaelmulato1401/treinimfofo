@@ -155,6 +155,15 @@ input,select,textarea{font-family:inherit;}
   padding:12px;margin-bottom:10px;display:flex;gap:12px;align-items:center;
 }
 .plan-thumb{width:56px;height:56px;border-radius:10px;object-fit:cover;flex-shrink:0;background:#000;}
+.plan-order-num{
+  width:22px;height:22px;border-radius:50%;background:var(--surface-2);border:1px solid var(--border);
+  color:var(--muted);font-size:10.5px;font-weight:700;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+}
+.ex-num{
+  position:absolute;top:10px;right:10px;background:rgba(14,16,18,0.75);backdrop-filter:blur(4px);
+  color:var(--text);font-size:11px;font-weight:700;width:24px;height:24px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+}
 .plan-info{flex:1;min-width:0;}
 .plan-info .nm{font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .plan-info .sr{font-size:12px;color:var(--muted);margin-top:2px;}
@@ -162,6 +171,12 @@ input,select,textarea{font-family:inherit;}
   width:32px;height:32px;border-radius:9px;background:var(--surface-2);border:1px solid var(--border);
   color:var(--coral);font-size:14px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
 }
+.plan-order{display:flex;flex-direction:column;gap:4px;flex-shrink:0;}
+.plan-order button{
+  width:28px;height:24px;border-radius:7px;background:var(--surface-2);border:1px solid var(--border);
+  color:var(--text);font-size:11px;display:flex;align-items:center;justify-content:center;
+}
+.plan-order button:disabled{opacity:0.25;}
 
 .add-fab{
   width:100%;padding:15px;border-radius:14px;border:1.5px dashed var(--border);background:transparent;

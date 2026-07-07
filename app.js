@@ -402,13 +402,18 @@ function renderCoach(){
   if(appState.plan.length === 0){
     html += `<div class="empty-state"><div class="big-emoji">🗓️</div><strong>Nenhum exercício ainda</strong>Toque abaixo para montar o treino deste dia.</div>`;
   } else {
-    appState.plan.forEach(ex => {
+    appState.plan.forEach((ex, idx) => {
       html += `
         <div class="plan-row">
+          <div class="plan-order-num">${idx+1}</div>
           <img class="plan-thumb" src="${ex.frames[0]}" loading="lazy">
           <div class="plan-info">
             <div class="nm">${escapeHtml(ex.name)}</div>
             <div class="sr">${ex.sets}x${escapeHtml(String(ex.reps))} · ${escapeHtml(ex.group)}</div>
+          </div>
+          <div class="plan-order">
+            <button onclick="moveExercise('${ex.key}', -1)" ${idx===0 ? 'disabled' : ''}>▲</button>
+            <button onclick="moveExercise('${ex.key}', 1)" ${idx===appState.plan.length-1 ? 'disabled' : ''}>▼</button>
           </div>
           <button class="plan-del" onclick="removeExercise('${ex.key}')">✕</button>
         </div>`;
@@ -425,7 +430,7 @@ function renderAthlete(){
     return;
   }
   let html = '';
-  appState.plan.forEach(ex => {
+  appState.plan.forEach((ex, idx) => {
     const frames = ex.frames || [];
     let media = '';
     if(frames.length > 1){
@@ -438,6 +443,7 @@ function renderAthlete(){
         <div class="ex-media">
           ${media}
           <div class="ex-tag">${escapeHtml(ex.group)}</div>
+          <div class="ex-num">${idx+1}</div>
         </div>
         <div class="ex-body">
           <div class="ex-name">${escapeHtml(ex.name)}</div>
@@ -466,6 +472,15 @@ function escapeHtml(str){
 // =========================================================
 function removeExercise(key){
   appState.plan = appState.plan.filter(e => e.key !== key);
+  savePlan();
+}
+function moveExercise(key, direction){
+  const idx = appState.plan.findIndex(e => e.key === key);
+  const newIdx = idx + direction;
+  if(idx === -1 || newIdx < 0 || newIdx >= appState.plan.length) return;
+  const arr = appState.plan.slice();
+  [arr[idx], arr[newIdx]] = [arr[newIdx], arr[idx]];
+  appState.plan = arr;
   savePlan();
 }
 function toggleDone(key){
