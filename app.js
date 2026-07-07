@@ -17,6 +17,7 @@ let activeGroupFilter = 'Todos';
 let unsubscribePlanListener = null;
 let unsubscribeAlunosListener = null;
 let firebaseReady = false;
+let editingAlunoId = null;
 let db = null;
 let storage = null;
 
@@ -164,7 +165,7 @@ function openStudentPicker(){
   const isCoach = appState.role === 'coach';
   document.getElementById('students-modal-title').textContent = isCoach ? 'Montar treino para quem?' : 'Quem é você?';
   document.getElementById('new-aluno-field').classList.toggle('hidden', !isCoach);
-  document.getElementById('new-aluno-name').value = '';
+  cancelEditAluno();
   renderStudentsList();
   openModal('modal-students');
 }
@@ -172,8 +173,9 @@ function openStudentPicker(){
 function renderStudentsList(){
   const el = document.getElementById('students-list');
   const list = firebaseReady ? appState.alunos : localAlunos;
+  const isCoach = appState.role === 'coach';
   if(list.length === 0){
-    el.innerHTML = `<div class="empty-state" style="padding:20px 10px;"><strong>Nenhum aluno cadastrado</strong>${appState.role === 'coach' ? 'Cadastre o primeiro aluno abaixo.' : 'Peça para a treinadora cadastrar seu perfil.'}</div>`;
+    el.innerHTML = `<div class="empty-state" style="padding:20px 10px;"><strong>Nenhum aluno cadastrado</strong>${isCoach ? 'Cadastre o primeiro aluno abaixo.' : 'Peça para a treinadora cadastrar seu perfil.'}</div>`;
     return;
   }
   el.innerHTML = list.map(a => `
@@ -182,9 +184,120 @@ function renderStudentsList(){
       <div class="pi-info">
         <div class="pi-name">${escapeHtml(a.name)}</div>
       </div>
-      <button onclick='chooseAluno("${a.id}", ${JSON.stringify(a.name)})'>Selecionar</button>
+      <div class="student-actions">
+        ${isCoach ? `
+          <button class="icon-btn" onclick='startEditAluno("${a.id}", ${JSON.stringify(a.name)})' title="Editar">✎</button>
+          <button class="icon-btn danger" onclick='confirmDeleteAluno("${a.id}", ${JSON.stringify(a.name)})' title="Excluir">🗑</button>
+        ` : ''}
+        <button onclick='chooseAluno("${a.id}", ${JSON.stringify(a.name)})'>Selecionar</button>
+      </div>
     </div>
   `).join('');
+}
+
+function startEditAluno(id, name){
+  editingAlunoId = id;
+  document.getElementById('aluno-field-label').textContent = 'Editar nome do aluno';
+  document.getElementById('new-aluno-name').value = name;
+  document.getElementById('new-aluno-name').focus();
+  document.getElementById('btn-aluno-submit').textContent = 'Salvar';
+  document.getElementById('btn-aluno-cancel').classList.remove('hidden');
+}
+
+function cancelEditAluno(){
+  editingAlunoId = null;
+  document.getElementById('aluno-field-label').textContent = 'Adicionar novo aluno';
+  document.getElementById('new-aluno-name').value = '';
+  document.getElementById('btn-aluno-submit').textContent = 'Criar';
+  document.getElementById('btn-aluno-cancel').classList.add('hidden');
+}
+
+function submitAlunoForm(){
+  const name = document.getElementById('new-aluno-name').value.trim();
+  if(!name){ showToast('Digite o nome do aluno'); return; }
+
+  if(editingAlunoId){
+    updateAlunoName(editingAlunoId, name);
+  } else {
+    createAluno(name);
+  }
+}
+
+function updateAlunoName(id, name){
+  if(!firebaseReady){
+    const a = localAlunos.find(x => x.id === id);
+    if(a) a.name = name;
+    if(appState.currentAlunoId === id){
+      appState.currentAlunoName = name;
+      const isCoach = appState.role === 'coach';
+      localStorage.setItem(isCoach ? 'treino_coach_aluno_nome' : 'treino_meu_aluno_nome', name);
+      updateStudentBarUI();
+    }
+    cancelEditAluno();
+    renderStudentsList();
+    showToast('Nome atualizado ✓');
+    return;
+  }
+
+  db.collection('alunos').doc(id).update({ name })
+    .then(() => {
+      if(appState.currentAlunoId === id){
+        appState.currentAlunoName = name;
+        const isCoach = appState.role === 'coach';
+        localStorage.setItem(isCoach ? 'treino_coach_aluno_nome' : 'treino_meu_aluno_nome', name);
+        updateStudentBarUI();
+      }
+      cancelEditAluno();
+      showToast('Nome atualizado ✓');
+    })
+    .catch(err => {
+      console.error(err);
+      showToast('Erro ao atualizar aluno');
+    });
+}
+
+function confirmDeleteAluno(id, name){
+  const ok = confirm(`Excluir "${name}"? Isso também apaga os treinos semanais dessa pessoa.`);
+  if(!ok) return;
+  deleteAluno(id);
+}
+
+function clearCurrentAlunoIfMatches(id){
+  if(appState.currentAlunoId !== id) return;
+  appState.currentAlunoId = null;
+  appState.currentAlunoName = null;
+  const isCoach = appState.role === 'coach';
+  localStorage.removeItem(isCoach ? 'treino_coach_aluno_id' : 'treino_meu_aluno_id');
+  localStorage.removeItem(isCoach ? 'treino_coach_aluno_nome' : 'treino_meu_aluno_nome');
+  updateStudentBarUI();
+  if(unsubscribePlanListener) unsubscribePlanListener();
+  render();
+}
+
+function deleteAluno(id){
+  if(!firebaseReady){
+    localAlunos = localAlunos.filter(a => a.id !== id);
+    Object.keys(localPlans).forEach(key => { if(key.startsWith(id + '_')) delete localPlans[key]; });
+    clearCurrentAlunoIfMatches(id);
+    renderStudentsList();
+    showToast('Aluno excluído');
+    return;
+  }
+
+  const batch = db.batch();
+  batch.delete(db.collection('alunos').doc(id));
+  for(let wd = 0; wd <= 6; wd++){
+    batch.delete(db.collection('planos').doc(`${id}_${wd}`));
+  }
+  batch.commit()
+    .then(() => {
+      clearCurrentAlunoIfMatches(id);
+      showToast('Aluno excluído');
+    })
+    .catch(err => {
+      console.error(err);
+      showToast('Erro ao excluir aluno');
+    });
 }
 
 function chooseAluno(id, name){
@@ -198,14 +311,12 @@ function chooseAluno(id, name){
   loadPlan();
 }
 
-function createAluno(){
-  const name = document.getElementById('new-aluno-name').value.trim();
-  if(!name){ showToast('Digite o nome do aluno'); return; }
-
+function createAluno(name){
   if(!firebaseReady){
     const id = 'local_' + Date.now();
     localAlunos.push({id, name});
     chooseAluno(id, name);
+    cancelEditAluno();
     showToast('Aluno cadastrado ✓');
     return;
   }
@@ -213,6 +324,7 @@ function createAluno(){
   db.collection('alunos').add({ name, createdAt: firebase.firestore.FieldValue.serverTimestamp() })
     .then(docRef => {
       chooseAluno(docRef.id, name);
+      cancelEditAluno();
       showToast('Aluno cadastrado ✓');
     })
     .catch(err => {
