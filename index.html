@@ -51,6 +51,21 @@ input,select,textarea{font-family:inherit;}
   padding:6px 12px;border-radius:999px;border:none;text-transform:uppercase;letter-spacing:0.5px;
 }
 
+/* ---------- Student bar ---------- */
+.student-bar{padding:0 18px 14px;}
+.student-bar-inner{
+  display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--border);
+  border-radius:14px;padding:12px 14px;
+}
+.student-avatar{
+  width:38px;height:38px;border-radius:10px;background:rgba(217,154,84,0.16);color:var(--volt);
+  display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;
+}
+.student-info{flex:1;min-width:0;}
+.sb-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
+.sb-name{font-weight:700;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sb-chevron{color:var(--muted);font-size:14px;flex-shrink:0;}
+
 /* ---------- Role select screen ---------- */
 #screen-role{
   flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -303,14 +318,24 @@ input,select,textarea{font-family:inherit;}
       <button class="role-pill" id="role-pill-btn" onclick="switchRole()">trocar</button>
     </div>
 
+    <div class="student-bar">
+      <div class="student-bar-inner" onclick="openStudentPicker()">
+        <div class="student-avatar">👤</div>
+        <div class="student-info">
+          <div class="sb-label" id="sb-label">TREINO PARA</div>
+          <div class="sb-name" id="sb-name">Selecionar aluno</div>
+        </div>
+        <div class="sb-chevron">▾</div>
+      </div>
+    </div>
+
     <div class="date-nav">
-      <button onclick="changeDay(-1)">‹</button>
+      <button onclick="changeWeekday(-1)">‹</button>
       <div class="date-center">
-        <div class="weekday" id="dn-weekday">—</div>
         <div class="fulldate" id="dn-date">—</div>
         <div class="today-badge" id="dn-today"></div>
       </div>
-      <button onclick="changeDay(1)">›</button>
+      <button onclick="changeWeekday(1)">›</button>
     </div>
 
     <div id="content"></div>
@@ -319,6 +344,26 @@ input,select,textarea{font-family:inherit;}
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- MODAL: alunos -->
+<div class="modal-backdrop" id="modal-students">
+  <div class="modal-sheet" style="height:76vh;">
+    <div class="modal-head">
+      <h2 id="students-modal-title">Alunos</h2>
+      <button class="modal-close" onclick="closeModal('modal-students')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="pick-list" id="students-list"></div>
+      <div class="field" id="new-aluno-field" style="margin-top:18px;">
+        <label>Adicionar novo aluno</label>
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="new-aluno-name" placeholder="Nome do aluno" style="flex:1;min-width:0;">
+          <button onclick="createAluno()" style="padding:0 18px;border-radius:11px;background:var(--volt);border:none;color:#0e1012;font-weight:700;flex-shrink:0;">Criar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- MODAL: adicionar exercício (busca) -->
 <div class="modal-backdrop" id="modal-picker">

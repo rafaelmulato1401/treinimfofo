@@ -3,24 +3,28 @@
 // =========================================================
 const appState = {
   role: null,          // 'coach' | 'athlete'
-  date: new Date(),
-  plan: [],            // exercícios do dia atual
+  weekday: (new Date()).getDay(), // 0=Domingo ... 6=Sábado
+  currentAlunoId: null,
+  currentAlunoName: null,
+  plan: [],            // exercícios do dia da semana atual
   customExercises: [], // biblioteca criada pelos usuários
+  alunos: [],          // lista de alunos cadastrados
 };
 let selectedExercise = null;
 let selectedFile = null;
 let activeGifTab = 'url';
 let activeGroupFilter = 'Todos';
-let unsubscribeDayListener = null;
+let unsubscribePlanListener = null;
+let unsubscribeAlunosListener = null;
 let firebaseReady = false;
 let db = null;
 let storage = null;
 
-const WEEKDAYS = ['DOMINGO','SEGUNDA-FEIRA','TERÇA-FEIRA','QUARTA-FEIRA','QUINTA-FEIRA','SEXTA-FEIRA','SÁBADO'];
-const MONTHS = ['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
+const WEEKDAYS_FULL = ['DOMINGO','SEGUNDA-FEIRA','TERÇA-FEIRA','QUARTA-FEIRA','QUINTA-FEIRA','SEXTA-FEIRA','SÁBADO'];
 
 // fallback local (usado somente se o Firebase não estiver configurado)
-const localStore = {};
+const localPlans = {};   // key: `${alunoId}_${weekday}`
+let localAlunos = [];
 
 // =========================================================
 // INIT
@@ -61,7 +65,10 @@ window.addEventListener('DOMContentLoaded', () => {
     showMain();
   }
 
-  if(firebaseReady) loadCustomExercises();
+  if(firebaseReady){
+    loadCustomExercises();
+    loadAlunos();
+  }
 });
 
 // =========================================================
@@ -74,7 +81,7 @@ function selectRole(role){
 }
 function switchRole(){
   localStorage.removeItem('treino_role');
-  if(unsubscribeDayListener) unsubscribeDayListener();
+  if(unsubscribePlanListener) unsubscribePlanListener();
   document.getElementById('screen-main').classList.add('hidden');
   document.getElementById('screen-role').classList.remove('hidden');
 }
@@ -82,49 +89,165 @@ function showMain(){
   document.getElementById('screen-role').classList.add('hidden');
   document.getElementById('screen-main').classList.remove('hidden');
   const isCoach = appState.role === 'coach';
-  document.getElementById('header-title').textContent = isCoach ? 'Montar Treino' : 'Treino de Hoje';
-  document.getElementById('header-sub').textContent = isCoach ? 'PAINEL DA TREINADORA' : 'BORA TREINAR';
+  document.getElementById('header-title').textContent = isCoach ? 'Montar Treino' : 'Meu Treino';
+  document.getElementById('header-sub').textContent = isCoach ? 'PAINEL DA TREINADORA' : 'SEMANA DE TREINO';
   document.getElementById('role-pill-btn').textContent = isCoach ? 'treinadora' : 'aluno';
-  loadDay();
-}
+  document.getElementById('sb-label').textContent = isCoach ? 'MONTANDO TREINO PARA' : 'TREINO DE';
 
-// =========================================================
-// DATA HELPERS
-// =========================================================
-function fmtDateKey(d){
-  const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), day = String(d.getDate()).padStart(2,'0');
-  return `${y}-${m}-${day}`;
-}
-function isSameDay(a,b){
-  return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
-}
-function updateDateNavUI(){
-  const d = appState.date;
-  document.getElementById('dn-weekday').textContent = WEEKDAYS[d.getDay()];
-  document.getElementById('dn-date').textContent = `${d.getDate()} DE ${MONTHS[d.getMonth()]}`;
-  document.getElementById('dn-today').textContent = isSameDay(d, new Date()) ? 'HOJE' : '';
-}
-function changeDay(delta){
-  appState.date.setDate(appState.date.getDate()+delta);
-  loadDay();
-}
+  // restaura aluno salvo
+  const savedAlunoKey = isCoach ? 'treino_coach_aluno_id' : 'treino_meu_aluno_id';
+  const savedAlunoName = isCoach ? 'treino_coach_aluno_nome' : 'treino_meu_aluno_nome';
+  const savedId = localStorage.getItem(savedAlunoKey);
+  const savedName = localStorage.getItem(savedAlunoName);
+  if(savedId && savedName){
+    appState.currentAlunoId = savedId;
+    appState.currentAlunoName = savedName;
+  }
 
-// =========================================================
-// LOAD / SAVE DAY
-// =========================================================
-function loadDay(){
-  updateDateNavUI();
-  if(unsubscribeDayListener) unsubscribeDayListener();
-  const key = fmtDateKey(appState.date);
+  updateStudentBarUI();
+  updateWeekdayNavUI();
 
   if(!firebaseReady){
-    appState.plan = localStore[key] ? JSON.parse(JSON.stringify(localStore[key])) : [];
+    appState.alunos = localAlunos;
+    if(!appState.currentAlunoId){
+      renderNoStudentPrompt();
+    } else {
+      loadPlan();
+    }
+    return;
+  }
+
+  if(appState.currentAlunoId){
+    loadPlan();
+  } else {
+    renderNoStudentPrompt();
+  }
+}
+
+function renderNoStudentPrompt(){
+  const isCoach = appState.role === 'coach';
+  document.getElementById('content').innerHTML = `
+    <div class="empty-state">
+      <div class="big-emoji">👤</div>
+      <strong>${isCoach ? 'Escolha um aluno' : 'Quem é você?'}</strong>
+      ${isCoach ? 'Selecione ou cadastre um aluno para montar o treino.' : 'Selecione seu perfil na lista de alunos.'}
+    </div>
+    <button class="add-fab" onclick="openStudentPicker()">＋ ${isCoach ? 'Selecionar / cadastrar aluno' : 'Selecionar meu perfil'}</button>
+  `;
+}
+
+// =========================================================
+// WEEKDAY NAV (sem datas — treino recorrente semanal)
+// =========================================================
+function updateWeekdayNavUI(){
+  document.getElementById('dn-date').textContent = WEEKDAYS_FULL[appState.weekday];
+  const today = new Date().getDay();
+  document.getElementById('dn-today').textContent = (appState.weekday === today) ? 'HOJE' : '';
+}
+function changeWeekday(delta){
+  appState.weekday = (appState.weekday + delta + 7) % 7;
+  updateWeekdayNavUI();
+  loadPlan();
+}
+
+// =========================================================
+// ALUNOS
+// =========================================================
+function loadAlunos(){
+  unsubscribeAlunosListener = db.collection('alunos').orderBy('name').onSnapshot(snap => {
+    appState.alunos = snap.docs.map(d => ({ id:d.id, ...d.data() }));
+    if(document.getElementById('modal-students').classList.contains('open')) renderStudentsList();
+  }, err => console.error(err));
+}
+
+function openStudentPicker(){
+  const isCoach = appState.role === 'coach';
+  document.getElementById('students-modal-title').textContent = isCoach ? 'Montar treino para quem?' : 'Quem é você?';
+  document.getElementById('new-aluno-field').classList.toggle('hidden', !isCoach);
+  document.getElementById('new-aluno-name').value = '';
+  renderStudentsList();
+  openModal('modal-students');
+}
+
+function renderStudentsList(){
+  const el = document.getElementById('students-list');
+  const list = firebaseReady ? appState.alunos : localAlunos;
+  if(list.length === 0){
+    el.innerHTML = `<div class="empty-state" style="padding:20px 10px;"><strong>Nenhum aluno cadastrado</strong>${appState.role === 'coach' ? 'Cadastre o primeiro aluno abaixo.' : 'Peça para a treinadora cadastrar seu perfil.'}</div>`;
+    return;
+  }
+  el.innerHTML = list.map(a => `
+    <div class="pick-item">
+      <div class="student-avatar" style="width:46px;height:46px;">👤</div>
+      <div class="pi-info">
+        <div class="pi-name">${escapeHtml(a.name)}</div>
+      </div>
+      <button onclick='chooseAluno("${a.id}", ${JSON.stringify(a.name)})'>Selecionar</button>
+    </div>
+  `).join('');
+}
+
+function chooseAluno(id, name){
+  appState.currentAlunoId = id;
+  appState.currentAlunoName = name;
+  const isCoach = appState.role === 'coach';
+  localStorage.setItem(isCoach ? 'treino_coach_aluno_id' : 'treino_meu_aluno_id', id);
+  localStorage.setItem(isCoach ? 'treino_coach_aluno_nome' : 'treino_meu_aluno_nome', name);
+  updateStudentBarUI();
+  closeModal('modal-students');
+  loadPlan();
+}
+
+function createAluno(){
+  const name = document.getElementById('new-aluno-name').value.trim();
+  if(!name){ showToast('Digite o nome do aluno'); return; }
+
+  if(!firebaseReady){
+    const id = 'local_' + Date.now();
+    localAlunos.push({id, name});
+    chooseAluno(id, name);
+    showToast('Aluno cadastrado ✓');
+    return;
+  }
+
+  db.collection('alunos').add({ name, createdAt: firebase.firestore.FieldValue.serverTimestamp() })
+    .then(docRef => {
+      chooseAluno(docRef.id, name);
+      showToast('Aluno cadastrado ✓');
+    })
+    .catch(err => {
+      console.error(err);
+      showToast('Erro ao cadastrar aluno');
+    });
+}
+
+function updateStudentBarUI(){
+  document.getElementById('sb-name').textContent = appState.currentAlunoName || 'Selecionar aluno';
+}
+
+// =========================================================
+// LOAD / SAVE PLAN (por aluno + dia da semana)
+// =========================================================
+function planKey(){
+  return `${appState.currentAlunoId}_${appState.weekday}`;
+}
+
+function loadPlan(){
+  if(unsubscribePlanListener) unsubscribePlanListener();
+  if(!appState.currentAlunoId){
+    renderNoStudentPrompt();
+    return;
+  }
+  const key = planKey();
+
+  if(!firebaseReady){
+    appState.plan = localPlans[key] ? JSON.parse(JSON.stringify(localPlans[key])) : [];
     render();
     return;
   }
 
   document.getElementById('content').innerHTML = `<div class="empty-state"><div class="big-emoji">⏳</div><strong>Carregando...</strong></div>`;
-  unsubscribeDayListener = db.collection('treinos').doc(key).onSnapshot(doc=>{
+  unsubscribePlanListener = db.collection('planos').doc(key).onSnapshot(doc=>{
     appState.plan = doc.exists ? (doc.data().exercises || []) : [];
     render();
   }, err=>{
@@ -133,14 +256,17 @@ function loadDay(){
   });
 }
 
-function saveDay(){
-  const key = fmtDateKey(appState.date);
+function savePlan(){
+  if(!appState.currentAlunoId) return;
+  const key = planKey();
   if(!firebaseReady){
-    localStore[key] = JSON.parse(JSON.stringify(appState.plan));
+    localPlans[key] = JSON.parse(JSON.stringify(appState.plan));
     render();
     return;
   }
-  db.collection('treinos').doc(key).set({
+  db.collection('planos').doc(key).set({
+    alunoId: appState.currentAlunoId,
+    weekday: appState.weekday,
     exercises: appState.plan,
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   }, {merge:true}).catch(err=>{
@@ -153,6 +279,7 @@ function saveDay(){
 // RENDER
 // =========================================================
 function render(){
+  if(!appState.currentAlunoId){ renderNoStudentPrompt(); return; }
   if(appState.role === 'coach') renderCoach();
   else renderAthlete();
 }
@@ -182,7 +309,7 @@ function renderCoach(){
 function renderAthlete(){
   const el = document.getElementById('content');
   if(appState.plan.length === 0){
-    el.innerHTML = `<div class="empty-state"><div class="big-emoji">😴</div><strong>Sem treino para este dia</strong>Peça para sua treinadora montar o treino de hoje.</div>`;
+    el.innerHTML = `<div class="empty-state"><div class="big-emoji">😴</div><strong>Sem treino para este dia</strong>Peça para sua treinadora montar o treino deste dia da semana.</div>`;
     return;
   }
   let html = '';
@@ -227,11 +354,11 @@ function escapeHtml(str){
 // =========================================================
 function removeExercise(key){
   appState.plan = appState.plan.filter(e => e.key !== key);
-  saveDay();
+  savePlan();
 }
 function toggleDone(key){
   appState.plan = appState.plan.map(e => e.key === key ? {...e, done: !e.done} : e);
-  saveDay();
+  savePlan();
 }
 
 // =========================================================
@@ -241,6 +368,7 @@ function openModal(id){ document.getElementById(id).classList.add('open'); }
 function closeModal(id){ document.getElementById(id).classList.remove('open'); }
 
 function openModalPicker(){
+  if(!appState.currentAlunoId){ showToast('Selecione um aluno primeiro'); openStudentPicker(); return; }
   activeGroupFilter = 'Todos';
   document.getElementById('pick-search').value = '';
   buildGroupChips();
@@ -316,7 +444,7 @@ function confirmAddExercise(){
     done: false,
     isCustom: !!selectedExercise.isCustom
   });
-  saveDay();
+  savePlan();
   closeModal('modal-sets');
   showToast('Exercício adicionado ao treino ✓');
 }
