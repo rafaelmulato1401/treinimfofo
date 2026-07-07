@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>TreinimFofo</title>
+<link rel="icon" type="image/png" href="logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0e1012;
+  --surface:#181b1f;
+  --surface-2:#212429;
+  --border:#2b2f35;
+  --text:#f2f3ee;
+  --muted:#8b9099;
+  --volt:#d99a54;
+  --volt-dim:#b87d3c;
+  --coral:#ff5a3c;
+  --blue:#4f8cff;
+  --radius:16px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;overscroll-behavior-y:none;}
+body{min-height:100vh;display:flex;flex-direction:column;}
+h1,h2,h3{font-family:'Bebas Neue',sans-serif;letter-spacing:0.5px;margin:0;}
+button{font-family:inherit;cursor:pointer;}
+input,select,textarea{font-family:inherit;}
+.hidden{display:none !important;}
+
+/* ---------- App shell ---------- */
+#app{flex:1;display:flex;flex-direction:column;max-width:560px;margin:0 auto;width:100%;position:relative;}
+
+/* ---------- Top bar ---------- */
+.topbar{
+  position:sticky;top:0;z-index:30;
+  background:linear-gradient(180deg, rgba(14,16,18,0.98) 70%, rgba(14,16,18,0));
+  padding:18px 18px 10px;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.brand{display:flex;align-items:center;gap:10px;}
+.brand .mark{
+  width:38px;height:38px;flex-shrink:0;
+}
+.brand .mark img{width:100%;height:100%;object-fit:contain;}
+.brand-title{font-size:22px;line-height:1;}
+.brand-sub{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin-top:2px;}
+.role-pill{
+  font-size:11px;font-weight:700;color:var(--bg);background:var(--volt);
+  padding:6px 12px;border-radius:999px;border:none;text-transform:uppercase;letter-spacing:0.5px;
+}
+
+/* ---------- Role select screen ---------- */
+#screen-role{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:32px 24px;text-align:center;gap:22px;
+}
+.role-logo{width:168px;height:auto;filter:drop-shadow(0 10px 24px rgba(217,154,84,0.25));}
+.role-hero{font-size:44px;line-height:0.95;}
+.role-hero span{color:var(--volt);}
+.role-hero-sub{color:var(--muted);font-size:14.5px;max-width:320px;line-height:1.5;}
+.role-choices{display:flex;flex-direction:column;gap:14px;width:100%;max-width:320px;}
+.role-btn{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:20px;display:flex;align-items:center;gap:14px;text-align:left;color:var(--text);
+  transition:transform .15s ease, border-color .15s ease;
+}
+.role-btn:active{transform:scale(0.97);}
+.role-btn .icon{
+  width:44px;height:44px;border-radius:12px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:20px;
+}
+.role-btn.coach .icon{background:rgba(217,154,84,0.16);}
+.role-btn.athlete .icon{background:rgba(79,140,255,0.14);}
+.role-btn strong{font-family:'Bebas Neue';font-size:20px;letter-spacing:0.5px;display:block;}
+.role-btn small{color:var(--muted);font-size:12.5px;}
+
+/* ---------- Date nav ---------- */
+.date-nav{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:4px 18px 16px;gap:10px;
+}
+.date-nav button{
+  width:38px;height:38px;border-radius:10px;background:var(--surface);border:1px solid var(--border);
+  color:var(--text);font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.date-center{flex:1;text-align:center;}
+.date-center .weekday{font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--volt);font-weight:700;}
+.date-center .fulldate{font-family:'Bebas Neue';font-size:24px;line-height:1.1;}
+.date-center .today-badge{font-size:10px;color:var(--muted);margin-top:1px;}
+
+/* ---------- Content scroll area ---------- */
+#content{flex:1;overflow-y:auto;padding:0 18px 100px;-webkit-overflow-scrolling:touch;}
+
+/* ---------- Exercise cards (athlete view) ---------- */
+.ex-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  margin-bottom:14px;overflow:hidden;position:relative;
+}
+.ex-card.done{border-color:var(--volt-dim);}
+.ex-media{
+  width:100%;aspect-ratio:4/3;background:#000;position:relative;overflow:hidden;
+}
+.ex-media img{
+  width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0;
+}
+.ex-media img.pose-single{opacity:1;}
+.ex-media img.pose-a{animation:fadeA 1.8s ease-in-out infinite;}
+.ex-media img.pose-b{animation:fadeB 1.8s ease-in-out infinite;}
+@keyframes fadeA{0%,42%{opacity:1;}50%,92%{opacity:0;}100%{opacity:1;}}
+@keyframes fadeB{0%,42%{opacity:0;}50%,92%{opacity:1;}100%{opacity:0;}}
+.ex-tag{
+  position:absolute;top:10px;left:10px;background:rgba(14,16,18,0.75);backdrop-filter:blur(4px);
+  color:var(--volt);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:1px;
+  padding:5px 10px;border-radius:999px;
+}
+.ex-body{padding:14px 16px 16px;}
+.ex-name{font-family:'Bebas Neue';font-size:21px;letter-spacing:0.3px;margin-bottom:6px;}
+.ex-meta{display:flex;gap:16px;margin-bottom:8px;}
+.ex-meta div{display:flex;flex-direction:column;}
+.ex-meta .num{font-family:'Bebas Neue';font-size:19px;color:var(--volt);line-height:1;}
+.ex-meta .lbl{font-size:9.5px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:2px;}
+.ex-obs{font-size:13px;color:var(--muted);line-height:1.4;margin-bottom:12px;}
+.done-toggle{
+  width:100%;padding:11px;border-radius:11px;border:1px solid var(--border);background:var(--surface-2);
+  color:var(--text);font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;
+}
+.done-toggle.checked{background:var(--volt);color:#0e1012;border-color:var(--volt);}
+
+.empty-state{
+  text-align:center;padding:60px 20px;color:var(--muted);
+}
+.empty-state .big-emoji{font-size:40px;margin-bottom:10px;}
+.empty-state strong{display:block;color:var(--text);font-family:'Bebas Neue';font-size:20px;margin-bottom:4px;}
+
+/* ---------- Coach: added exercise row ---------- */
+.plan-row{
+  background:var(--surface);border:1px solid var(--border);border-radius:14px;
+  padding:12px;margin-bottom:10px;display:flex;gap:12px;align-items:center;
+}
+.plan-thumb{width:56px;height:56px;border-radius:10px;object-fit:cover;flex-shrink:0;background:#000;}
+.plan-info{flex:1;min-width:0;}
+.plan-info .nm{font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.plan-info .sr{font-size:12px;color:var(--muted);margin-top:2px;}
+.plan-del{
+  width:32px;height:32px;border-radius:9px;background:var(--surface-2);border:1px solid var(--border);
+  color:var(--coral);font-size:14px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+}
+
+.add-fab{
+  width:100%;padding:15px;border-radius:14px;border:1.5px dashed var(--border);background:transparent;
+  color:var(--muted);font-weight:700;font-size:14px;margin-top:6px;display:flex;align-items:center;justify-content:center;gap:8px;
+}
+.save-bar{
+  position:sticky;bottom:0;padding:14px 18px calc(18px + env(safe-area-inset-bottom));
+  background:linear-gradient(0deg, var(--bg) 60%, rgba(14,16,18,0));
+}
+.btn-primary{
+  width:100%;padding:16px;border-radius:14px;border:none;background:var(--volt);color:#0e1012;
+  font-family:'Bebas Neue';font-size:18px;letter-spacing:0.5px;display:flex;align-items:center;justify-content:center;gap:8px;
+}
+.btn-primary:disabled{opacity:0.5;}
+.save-status{text-align:center;font-size:11px;color:var(--muted);margin-top:8px;height:14px;}
+
+/* ---------- Bottom switch role ---------- */
+.footer-switch{text-align:center;padding:6px 0 2px;}
+.footer-switch button{background:none;border:none;color:var(--muted);font-size:12px;text-decoration:underline;}
+
+/* ---------- Modal ---------- */
+.modal-backdrop{
+  position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:100;display:flex;align-items:flex-end;
+  opacity:0;pointer-events:none;transition:opacity .2s ease;
+}
+.modal-backdrop.open{opacity:1;pointer-events:auto;}
+.modal-sheet{
+  background:var(--bg);width:100%;max-height:88vh;border-radius:20px 20px 0 0;
+  border-top:1px solid var(--border);display:flex;flex-direction:column;
+  transform:translateY(100%);transition:transform .25s cubic-bezier(.32,.72,0,1);
+  max-width:560px;margin:0 auto;
+}
+.modal-backdrop.open .modal-sheet{transform:translateY(0);}
+.modal-head{
+  padding:16px 18px 10px;display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid var(--border);
+}
+.modal-head h2{font-size:20px;}
+.modal-close{width:30px;height:30px;border-radius:9px;background:var(--surface);border:1px solid var(--border);color:var(--text);}
+.modal-body{padding:14px 18px;overflow-y:auto;flex:1;}
+.modal-foot{padding:12px 18px calc(14px + env(safe-area-inset-bottom));border-top:1px solid var(--border);}
+
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:11.5px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:700;margin-bottom:6px;}
+.field input[type=text],.field input[type=number],.field input[type=url],.field select,.field textarea{
+  width:100%;padding:12px 13px;background:var(--surface);border:1px solid var(--border);border-radius:11px;
+  color:var(--text);font-size:14.5px;
+}
+.field textarea{resize:vertical;min-height:60px;}
+.row2{display:flex;gap:10px;}
+.row2 .field{flex:1;}
+
+.search-box{position:relative;margin-bottom:12px;}
+.search-box input{width:100%;padding:12px 13px 12px 38px;background:var(--surface);border:1px solid var(--border);border-radius:11px;color:var(--text);font-size:14.5px;}
+.search-box .ic{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--muted);}
+
+.chip-row{display:flex;gap:8px;overflow-x:auto;padding-bottom:10px;margin-bottom:4px;}
+.chip-row::-webkit-scrollbar{display:none;}
+.chip{
+  flex-shrink:0;padding:8px 14px;border-radius:999px;background:var(--surface);border:1px solid var(--border);
+  font-size:12.5px;font-weight:600;color:var(--muted);white-space:nowrap;
+}
+.chip.active{background:var(--volt);color:#0e1012;border-color:var(--volt);}
+
+.pick-list{display:flex;flex-direction:column;gap:8px;}
+.pick-item{
+  display:flex;align-items:center;gap:12px;padding:9px;background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;
+}
+.pick-item img{width:46px;height:46px;border-radius:9px;object-fit:cover;background:#000;flex-shrink:0;}
+.pick-item .pi-info{flex:1;min-width:0;}
+.pick-item .pi-name{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pick-item .pi-group{font-size:11px;color:var(--muted);}
+.pick-item button{
+  padding:8px 12px;border-radius:9px;background:var(--volt);color:#0e1012;border:none;font-size:12px;font-weight:700;flex-shrink:0;
+}
+.custom-badge{font-size:9px;background:var(--coral);color:#fff;padding:2px 6px;border-radius:5px;margin-left:6px;vertical-align:middle;}
+
+.create-new-link{
+  display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:13px;
+  border-radius:12px;border:1.5px dashed var(--border);background:transparent;color:var(--volt);
+  font-weight:700;font-size:13.5px;margin-top:8px;
+}
+
+.tabbed{display:flex;background:var(--surface);border-radius:11px;padding:4px;margin-bottom:12px;border:1px solid var(--border);}
+.tabbed button{flex:1;padding:9px;border:none;background:transparent;color:var(--muted);border-radius:8px;font-size:12.5px;font-weight:700;}
+.tabbed button.active{background:var(--volt);color:#0e1012;}
+
+.upload-zone{
+  border:1.5px dashed var(--border);border-radius:14px;padding:22px;text-align:center;color:var(--muted);font-size:13px;
+  position:relative;background:var(--surface);
+}
+.upload-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;}
+.upload-preview{width:100%;max-height:180px;border-radius:11px;margin-top:10px;object-fit:contain;background:#000;}
+.upload-progress{height:5px;background:var(--surface-2);border-radius:3px;margin-top:10px;overflow:hidden;}
+.upload-progress-bar{height:100%;background:var(--volt);width:0%;transition:width .2s;}
+
+.toast{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);
+  background:var(--surface-2);border:1px solid var(--border);color:var(--text);
+  padding:12px 18px;border-radius:12px;font-size:13px;z-index:200;opacity:0;transition:all .25s ease;
+  max-width:90%;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,0.4);
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+.spinner{
+  width:16px;height:16px;border-radius:50%;border:2px solid rgba(14,16,18,0.25);border-top-color:#0e1012;
+  animation:spin .7s linear infinite;display:inline-block;
+}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+.config-warning{
+  margin:18px;padding:16px;background:rgba(255,90,60,0.1);border:1px solid rgba(255,90,60,0.3);
+  border-radius:14px;font-size:12.5px;line-height:1.5;color:#ffb8a3;
+}
+.config-warning b{color:var(--coral);}
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <div id="config-warning" class="config-warning hidden">
+    <b>⚠ Firebase não configurado.</b> Edite o arquivo e preencha o objeto <code>firebaseConfig</code> no final do HTML com as credenciais do seu projeto Firebase (Firestore + Storage habilitados) para sincronizar entre os dois celulares.
+  </div>
+
+  <!-- ROLE SELECT -->
+  <div id="screen-role">
+    <img class="role-logo" src="logo.png" alt="TreinimFofo">
+    <div class="role-hero">TREINIM<span>FOFO</span></div>
+    <div class="role-hero-sub">Monte o treino do dia e acompanhe cada movimento com imagem, séries e repetições.</div>
+    <div class="role-choices">
+      <button class="role-btn coach" onclick="selectRole('coach')">
+        <div class="icon">🏋️‍♀️</div>
+        <div><strong>Sou a Treinadora</strong><small>Montar o treino do dia</small></div>
+      </button>
+      <button class="role-btn athlete" onclick="selectRole('athlete')">
+        <div class="icon">💪</div>
+        <div><strong>Sou o Aluno</strong><small>Ver o treino de hoje</small></div>
+      </button>
+    </div>
+  </div>
+
+  <!-- MAIN SCREEN (both roles use this shell) -->
+  <div id="screen-main" class="hidden">
+    <div class="topbar">
+      <div class="brand">
+        <div class="mark"><img src="logo.png" alt="TreinimFofo"></div>
+        <div>
+          <div class="brand-title" id="header-title">Treino</div>
+          <div class="brand-sub" id="header-sub">carregando...</div>
+        </div>
+      </div>
+      <button class="role-pill" id="role-pill-btn" onclick="switchRole()">trocar</button>
+    </div>
+
+    <div class="date-nav">
+      <button onclick="changeDay(-1)">‹</button>
+      <div class="date-center">
+        <div class="weekday" id="dn-weekday">—</div>
+        <div class="fulldate" id="dn-date">—</div>
+        <div class="today-badge" id="dn-today"></div>
+      </div>
+      <button onclick="changeDay(1)">›</button>
+    </div>
+
+    <div id="content"></div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- MODAL: adicionar exercício (busca) -->
+<div class="modal-backdrop" id="modal-picker">
+  <div class="modal-sheet" style="height:82vh;">
+    <div class="modal-head">
+      <h2>Adicionar exercício</h2>
+      <button class="modal-close" onclick="closeModal('modal-picker')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="search-box">
+        <span class="ic">🔎</span>
+        <input type="text" id="pick-search" placeholder="Buscar movimento..." oninput="renderPickList()">
+      </div>
+      <div class="chip-row" id="pick-groups"></div>
+      <div class="pick-list" id="pick-list"></div>
+      <button class="create-new-link" onclick="openCreateExercise()">＋ Criar novo exercício com GIF</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: definir séries/reps do exercício escolhido -->
+<div class="modal-backdrop" id="modal-sets">
+  <div class="modal-sheet">
+    <div class="modal-head">
+      <h2 id="sets-ex-name">Exercício</h2>
+      <button class="modal-close" onclick="closeModal('modal-sets')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="row2">
+        <div class="field"><label>Séries</label><input type="number" id="input-sets" value="3" min="1" max="20"></div>
+        <div class="field"><label>Repetições</label><input type="text" id="input-reps" value="12" placeholder="ex: 12 ou 8-12"></div>
+      </div>
+      <div class="field"><label>Observação (opcional)</label><textarea id="input-obs" placeholder="Ex: carga leve, cadência lenta, descanso 60s..."></textarea></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-primary" onclick="confirmAddExercise()">Adicionar ao treino</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: criar novo exercício -->
+<div class="modal-backdrop" id="modal-create">
+  <div class="modal-sheet" style="height:88vh;">
+    <div class="modal-head">
+      <h2>Novo movimento</h2>
+      <button class="modal-close" onclick="closeModal('modal-create')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Nome do exercício</label>
+        <input type="text" id="new-ex-name" placeholder="Ex: Remada Baixa na Polia">
+      </div>
+      <div class="field">
+        <label>Grupo muscular</label>
+        <select id="new-ex-group">
+          <option>Peito</option><option>Costas</option><option>Ombro</option>
+          <option>Bíceps</option><option>Tríceps</option><option>Perna</option>
+          <option>Glúteo</option><option>Abdômen</option><option>Cardio</option><option>Outro</option>
+        </select>
+      </div>
+      <div class="tabbed">
+        <button id="tab-url-btn" class="active" onclick="setGifTab('url')">Link do GIF</button>
+        <button id="tab-upload-btn" onclick="setGifTab('upload')">Subir arquivo</button>
+      </div>
+      <div id="gif-tab-url" class="field">
+        <label>URL do GIF</label>
+        <input type="url" id="new-ex-url" placeholder="https://...">
+        <img id="url-preview" class="upload-preview hidden">
+      </div>
+      <div id="gif-tab-upload" class="field hidden">
+        <label>Arquivo GIF</label>
+        <div class="upload-zone" id="upload-zone">
+          <span id="upload-zone-text">📁 Toque para escolher um GIF</span>
+          <input type="file" id="new-ex-file" accept="image/gif,image/*" onchange="handleFileSelect(event)">
+        </div>
+        <img id="file-preview" class="upload-preview hidden">
+        <div class="upload-progress hidden" id="upload-progress-wrap"><div class="upload-progress-bar" id="upload-progress-bar"></div></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-primary" id="btn-save-new-ex" onclick="saveNewExercise()">Salvar movimento</button>
+    </div>
+  </div>
+</div>
+
+<script src="builtin_exercises.js"></script>
+<script>
+// ============================================================
+// TODO: preencha com as credenciais do SEU projeto Firebase
+// (Firestore Database + Storage precisam estar ativados)
+// ============================================================
+const firebaseConfig = {
+  apiKey: "AIzaSyDBNNlFbHwHH50Jf7MIb8IizBi2oDJBFVk",
+  authDomain: "treinimfofo.firebaseapp.com",
+  projectId: "treinimfofo",
+  storageBucket: "treinimfofo.firebasestorage.app",
+  messagingSenderId: "621231808750",
+  appId: "1:621231808750:web:8ecf93f3cc05d9d6c913ff"
+};
+</script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
