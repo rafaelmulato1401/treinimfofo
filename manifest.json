@@ -10,6 +10,7 @@
   "background_color": "#0e1012",
   "theme_color": "#0e1012",
   "lang": "pt-BR",
+  "categories": ["health", "fitness", "lifestyle"],
   "icons": [
     {
       "src": "icons/icon-192.png",
